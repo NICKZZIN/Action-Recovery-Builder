@@ -227,9 +227,24 @@ jobs:
         cd /usr/bin
         sudo ln -sf python2 python
 
+    # --- INÍCIO DA CONFIGURAÇÃO DO CCACHE ---
+    - name: Configurar Cache do ccache
+      uses: actions/cache@v4
+      with:
+        path: /home/runner/.ccache
+        key: ccache-${{ runner.os }}-${{ inputs.MANIFEST_BRANCH }}-${{ github.sha }}
+        restore-keys: |
+          ccache-${{ runner.os }}-${{ inputs.MANIFEST_BRANCH }}-
+    # --- FIM DA CONFIGURAÇÃO DO CCACHE ---
+
     - name: Building recovery (AOSP)
       if: ${{ steps.buildtree.outputs.value == 'aosp' }} 
+      env:
+        USE_CCACHE: 1
+        CCACHE_DIR: /home/runner/.ccache
+        CCACHE_EXEC: /usr/bin/ccache
       run: |
+        ccache -M 10G
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         if [ ${{ inputs.RECOVERY_INSTALLER }} = true ] && [ ${{ steps.recoveryinstaller.outcome == 'success' }} ]; then
@@ -241,7 +256,12 @@ jobs:
 
     - name: Building recovery (Omni)
       if: ${{ steps.buildtree.outputs.value == 'omni' }} 
+      env:
+        USE_CCACHE: 1
+        CCACHE_DIR: /home/runner/.ccache
+        CCACHE_EXEC: /usr/bin/ccache
       run: |
+        ccache -M 10G
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         if [ ${{ inputs.RECOVERY_INSTALLER }} = true ] && [ ${{ steps.recoveryinstaller.outcome == 'success' }} ]; then
@@ -250,7 +270,7 @@ jobs:
         fi
         lunch ${{ steps.buildtree.outputs.value }}_${{ inputs.DEVICE_NAME }}-eng && make ${{ inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: workspace
-
+      
     - name: Upload to Release
       uses: softprops/action-gh-release@4634c16e79c963813287e889244c50009e7f0981
       with:
